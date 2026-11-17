@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# iss-listen launcher — runs the tool inside its own venv.
+#                                                        — iceo96
+set -euo pipefail
+HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+PY="$HERE/.venv/bin/python"
+if [[ ! -x "$PY" ]]; then
+  echo "venv missing — run:  python3 -m venv '$HERE/.venv' && '$HERE/.venv/bin/pip' install skyfield fastapi 'uvicorn[standard]'" >&2
+  exit 1
+fi
+exec "$PY" "$HERE/iss_listen.py" "$@"
