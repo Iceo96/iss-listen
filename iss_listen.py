@@ -483,6 +483,11 @@ class IqEngine:
         self._taps = (taps / taps.sum()).astype(np.complex64)
         self._fir_state = np.zeros(n - 1, dtype=np.complex64)
         self._fm_prev = np.complex64(1 + 0j)
+        # --- signal-strength / spectrum state (for the live HUD) -------------
+        self._sig_ema = None          # smoothed narrowband power (dB)
+        self._noise_ema = None        # slow noise-floor estimate (dB)
+        self._spec_t = 0.0
+        self._spec_win = np.hanning(1024).astype(np.float32)
 
     def _spawn_sink(self) -> subprocess.Popen:
         if have("sox"):
@@ -594,6 +599,37 @@ class IqEngine:
             except (BrokenPipeError, ValueError):
                 break
 
+            # --- live signal strength + spectrum for the map HUD ------------
+            if base.shape[0]:
+                power = float(np.mean(base.real ** 2 + base.imag ** 2))
+                sig_db = 10.0 * math.log10(power + 1e-12)
+                self._sig_ema = (sig_db if self._sig_ema is None
+                                 else 0.75 * self._sig_ema + 0.25 * sig_db)
+                # Slow-tracking noise floor (only drifts down quickly, up slowly).
+                if self._noise_ema is None:
+                    self._noise_ema = sig_db
+                elif sig_db < self._noise_ema:
+                    self._noise_ema = 0.9 * self._noise_ema + 0.1 * sig_db
+                else:
+                    self._noise_ema = 0.999 * self._noise_ema + 0.001 * sig_db
+                snr = max(0.0, self._sig_ema - self._noise_ema)
+                now = time.time()
+                if now - self._spec_t > 0.15:
+                    self._spec_t = now
+                    m = min(1024, base.shape[0])
+                    seg = base[-m:] * self._spec_win[:m]
+                    sp = np.abs(np.fft.fftshift(np.fft.fft(seg)))
+                    sp = 20.0 * np.log10(sp + 1e-9)
+                    bins = 64
+                    cut = (sp.shape[0] // bins) * bins
+                    sp = sp[:cut].reshape(bins, -1).mean(axis=1)
+                    lo, hi = float(sp.min()), float(sp.max())
+                    norm = (sp - lo) / (hi - lo + 1e-9)       # 0..1 for display
+                    self.state.set(
+                        sig_db=round(self._sig_ema, 1),
+                        snr_db=round(snr, 1),
+                        spectrum=[round(float(x), 3) for x in norm])
+
     def stop(self):
         self._stop.set()
         try:
@@ -660,6 +696,8 @@ def start_map_server(state: ShareState, loc: Location):
             "elevation": s.get("elevation"), "azimuth": s.get("azimuth"),
             "doppler_hz": s.get("doppler_hz"), "freq_hz": s.get("freq_hz"),
             "status": s.get("status", "tracking"),
+            "sig_db": s.get("sig_db"), "snr_db": s.get("snr_db"),
+            "spectrum": s.get("spectrum"),
             "home_lat": loc.lat, "home_lon": loc.lon,
         })
 
@@ -692,6 +730,13 @@ MAP_HTML = r"""<!doctype html>
   #sig{position:absolute;z-index:1000;bottom:8px;right:10px;font-size:11px;
     color:var(--mut);font-family:ui-monospace,monospace;}
   .leaflet-container{background:#0b0f1a;}
+  #meter{height:9px;border-radius:5px;background:#182233;overflow:hidden;
+    margin:6px 0 2px;border:1px solid #223;}
+  #meterfill{height:100%;width:0%;border-radius:5px;
+    background:linear-gradient(90deg,#49d675,#f5d035,#f55);transition:width .15s;}
+  #spec{display:block;width:100%;height:48px;margin-top:6px;border-radius:6px;
+    background:#070b14;border:1px solid #1a2436;}
+  #carrier{color:#f5d035;font-weight:700;}
 </style></head>
 <body>
 <div id="map"></div>
@@ -703,6 +748,10 @@ MAP_HTML = r"""<!doctype html>
   <div class="row"><span class="k">altitude</span><span class="v" id="alt">—</span></div>
   <div class="row"><span class="k">doppler</span><span class="v dop" id="dop">—</span></div>
   <div class="row"><span class="k">tuned</span><span class="v" id="freq">—</span></div>
+  <div class="row" style="margin-top:4px"><span class="k">signal&nbsp;SNR</span><span class="v" id="snr">—</span></div>
+  <div id="meter"><div id="meterfill"></div></div>
+  <div class="row" style="font-size:10px"><span class="k">spectrum ±7.5 kHz</span><span class="k" id="carrier"></span></div>
+  <canvas id="spec" width="210" height="48"></canvas>
   <div class="row" style="margin-top:6px"><span class="k">audio</span><span class="v">on speakers 🔊</span></div>
 </div>
 <div id="sig">iss-listen — iceo96</div>
@@ -732,6 +781,12 @@ async function tick(){
       (d.doppler_hz>=0?'+':'')+Math.round(d.doppler_hz)+' Hz';
     document.getElementById('freq').textContent=d.freq_hz==null?'—':
       (d.freq_hz/1e6).toFixed(4)+' MHz';
+    // signal SNR meter
+    const snr=d.snr_db;
+    document.getElementById('snr').textContent=snr==null?'—':snr.toFixed(1)+' dB';
+    document.getElementById('meterfill').style.width=
+      snr==null?'0%':Math.max(0,Math.min(100,snr*4))+'%';
+    drawSpectrum(d.spectrum);
     if(d.lat!=null&&d.lon!=null){
       const p=[d.lat,d.lon];
       if(!iss){iss=L.marker(p,{icon:issIcon}).addTo(map);}else{iss.setLatLng(p);}
@@ -741,7 +796,33 @@ async function tick(){
     }
   }catch(e){}
 }
+const sc=document.getElementById('spec'), scx=sc.getContext('2d');
+function drawSpectrum(sp){
+  const W=sc.width,H=sc.height; scx.clearRect(0,0,W,H);
+  scx.fillStyle='#070b14'; scx.fillRect(0,0,W,H);
+  if(!sp||!sp.length){return;}
+  const bw=W/sp.length; let peak=0,pi=0;
+  for(let i=0;i<sp.length;i++){ if(sp[i]>peak){peak=sp[i];pi=i;} }
+  for(let i=0;i<sp.length;i++){
+    const h=Math.max(1,sp[i]*(H-2));
+    const mid=Math.abs(i-sp.length/2)<2;
+    scx.fillStyle = (i===pi&&peak>0.55)?'#f5d035':(mid?'#35507a':'#2f6f4e');
+    scx.fillRect(i*bw+0.5,H-h,bw-1,h);
+  }
+  // centre line = the tuned carrier (0 Hz after Doppler removal)
+  scx.strokeStyle='rgba(53,194,245,.35)'; scx.beginPath();
+  scx.moveTo(W/2,0); scx.lineTo(W/2,H); scx.stroke();
+  const c=document.getElementById('carrier');
+  c.textContent = peak>0.6 ? 'CARRIER ●' : '';
+}
 setInterval(tick,1000); tick();
+// Faster spectrum refresh for a lively display.
+setInterval(async()=>{try{const d=await(await fetch('/api/pos')).json();
+  const snr=d.snr_db;
+  document.getElementById('snr').textContent=snr==null?'—':snr.toFixed(1)+' dB';
+  document.getElementById('meterfill').style.width=
+    snr==null?'0%':Math.max(0,Math.min(100,snr*4))+'%';
+  drawSpectrum(d.spectrum);}catch(e){}},300);
 </script></body></html>
 """
 

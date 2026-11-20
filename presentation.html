@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iss-listen — OWASP Amman</title>
+<style>
+  :root{
+    --bg:#070b14; --panel:#0d1424; --fg:#e6edf3; --mut:#8b97a7;
+    --cyan:#35c2f5; --grn:#49d675; --yel:#f5d035; --red:#f5556b; --mag:#c678dd;
+    --line:#1c2740;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--fg);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    overflow:hidden}
+  code,.mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  #deck{height:100vh;width:100vw;position:relative}
+  .slide{position:absolute;inset:0;display:none;flex-direction:column;
+    justify-content:center;padding:6vh 8vw;opacity:0;transition:opacity .25s}
+  .slide.on{display:flex;opacity:1}
+  h1{font-size:clamp(34px,6.4vw,82px);line-height:1.02;letter-spacing:-1px;
+    margin-bottom:.35em}
+  h2{font-size:clamp(26px,4.4vw,52px);line-height:1.08;margin-bottom:.5em;
+    letter-spacing:-.5px}
+  h3{font-size:clamp(17px,2.1vw,25px);color:var(--cyan);margin-bottom:.5em;
+    font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+  p,li{font-size:clamp(16px,2.1vw,27px);line-height:1.5;color:#cdd7e3}
+  ul{margin:.3em 0 0 1.1em} li{margin:.38em 0}
+  .mut{color:var(--mut)} .cyan{color:var(--cyan)} .grn{color:var(--grn)}
+  .yel{color:var(--yel)} .red{color:var(--red)} .mag{color:var(--mag)}
+  b,strong{color:#fff}
+  .kick{color:var(--grn);font-weight:800;letter-spacing:3px;text-transform:uppercase;
+    font-size:clamp(13px,1.5vw,17px);margin-bottom:1em}
+  .big{font-size:clamp(30px,5.2vw,62px);font-weight:800;line-height:1.1}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:clamp(14px,2vw,26px)}
+  .grid{display:grid;gap:18px}
+  .cols2{grid-template-columns:1fr 1fr} .cols3{grid-template-columns:1fr 1fr 1fr}
+  .pill{display:inline-block;background:#122;border:1px solid var(--line);
+    border-radius:999px;padding:.2em .8em;font-size:.8em;color:var(--cyan);
+    margin:.2em .3em .2em 0}
+  .banner{font-family:ui-monospace,monospace;color:var(--cyan);white-space:pre;
+    font-size:clamp(7px,1.35vw,17px);line-height:1.15;text-shadow:0 0 20px rgba(53,194,245,.3)}
+  .demo-badge{font-size:clamp(60px,13vw,160px);font-weight:900;color:var(--grn);
+    letter-spacing:6px;text-shadow:0 0 40px rgba(73,214,117,.4)}
+  .foot{position:fixed;bottom:16px;left:0;right:0;display:flex;
+    justify-content:space-between;padding:0 24px;font-size:13px;color:var(--mut);
+    font-family:ui-monospace,monospace;z-index:5}
+  #bar{position:fixed;top:0;left:0;height:3px;background:var(--grn);width:0;
+    transition:width .25s;z-index:6;box-shadow:0 0 10px var(--grn)}
+  .tag{color:var(--mag)} .arrow{color:var(--mut)}
+  .term{background:#05080f;border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;font-family:ui-monospace,monospace;white-space:pre-wrap;
+    font-size:clamp(12px,1.55vw,19px);line-height:1.55;color:#cfe}
+  .term .c{color:var(--mut)} .term .g{color:var(--grn)} .term .y{color:var(--yel)}
+  .term .b{color:var(--cyan)}
+  .qr{background:#fff;border-radius:16px;padding:14px;width:min(34vh,300px)}
+  .qr img{display:block;width:100%;height:auto;image-rendering:pixelated}
+  .hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+    font-size:12px;color:#44506a;z-index:5}
+  svg{max-width:100%;height:auto}
+  .lead{font-size:clamp(18px,2.5vw,32px)}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div id="deck">
+
+  <!-- 1 — TITLE -->
+  <section class="slide">
+    <div class="banner">   ___ ____ ____   _     _     _
+  |_ _/ ___/ ___| | |   (_)___| |_ ___ _ __
+   | |\___ \___ \ | |   | / __| __/ _ \ '_ \
+   | | ___) |__) || |___| \__ \ ||  __/ | | |
+  |___|____/____/ |_____|_|___/\__\___|_| |_|</div>
+    <h1 style="margin-top:.4em">Hear the Space Station<br>fly over your house. 🛰️</h1>
+    <p class="lead mut">A $30 USB stick, Python, and the invisible radio world around us.</p>
+    <p style="margin-top:1.2em"><span class="pill">OWASP Amman</span>
+      <span class="pill">Software Defined Radio</span>
+      <span class="pill">RF Security</span></p>
+    <p class="mut" style="margin-top:1em">Presented by <b class="cyan">iceo96</b>
+      · <span class="yel">[ add your two teammates' names ]</span></p>
+  </section>
+
+  <!-- 2 — HOOK -->
+  <section class="slide">
+    <div class="kick">The question</div>
+    <h2>What is flying through the air<br>around you <span class="cyan">right now?</span></h2>
+    <p class="lead">Wi-Fi. Aircraft telemetry. Ship positions. Car key fobs. Weather
+      sensors. Pagers. Satellites. Your doorbell.</p>
+    <p class="lead" style="margin-top:.8em"><b>Most of it is unencrypted and
+      unauthenticated</b> — designed in an era when "nobody has the equipment to
+      listen."</p>
+    <p class="big grn" style="margin-top:.8em">That era is over.</p>
+  </section>
+
+  <!-- 3 — SDR -->
+  <section class="slide">
+    <div class="kick">The great equalizer</div>
+    <h2>Software Defined Radio</h2>
+    <div class="grid cols2" style="align-items:center">
+      <div>
+        <p>A <b>$30 USB dongle</b> (RTL-SDR) turns raw radio waves into numbers.
+          Software does the rest — tune <b>any</b> frequency, decode <b>any</b>
+          signal.</p>
+        <ul>
+          <li>What used to need a <span class="mut">lab full of gear</span>…</li>
+          <li>…now fits in a <b class="cyan">pocket + a laptop</b>.</li>
+          <li>The spectrum is <b>democratized</b> — for researchers <span class="mut">and attackers.</span></li>
+        </ul>
+      </div>
+      <div class="card" style="text-align:center">
+        <div style="font-size:clamp(50px,9vw,120px)">📡→💻</div>
+        <p class="mut" style="font-size:.85em">antenna → USB → samples → software</p>
+        <p style="margin-top:.6em"><span class="pill">ADS-B ✈️</span><span class="pill">AIS 🚢</span>
+          <span class="pill">APRS 📟</span><span class="pill">GPS 🛰️</span>
+          <span class="pill">433 MHz IoT</span><span class="pill">NOAA 🌦️</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 — THE TARGET -->
+  <section class="slide">
+    <div class="kick">Our (friendly, legal) target</div>
+    <h2>The ISS on <span class="cyan">145.800 MHz</span></h2>
+    <div class="grid cols2">
+      <div class="card">
+        <h3>Why it's perfect</h3>
+        <ul>
+          <li>Strong FM downlink, <b>400 km</b> up, passes overhead daily</li>
+          <li><b>Unencrypted & unauthenticated</b> — like most legacy RF</li>
+          <li><b class="grn">Receiving is 100% legal</b> & passive</li>
+          <li>Carries voice (crew/ARISS), <b>SSTV images</b>, APRS packet</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>The catch: it's moving at 7.66 km/s</h3>
+        <p>The signal gets smeared by <b class="yel">±3.5 kHz</b> of
+          <b>Doppler shift</b> — the same effect as a passing ambulance siren
+          dropping in pitch.</p>
+        <p style="margin-top:.5em">Ignore it → the audio distorts and fades.
+          <b class="cyan">This is the problem we solve.</b></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 — DEMO -->
+  <section class="slide" style="align-items:center;text-align:center">
+    <div class="demo-badge">LIVE DEMO</div>
+    <p class="lead" style="margin-top:.4em"><code>./iss-listen --now</code></p>
+    <div class="grid cols3" style="margin-top:1.4em;width:100%">
+      <div class="card"><h3>1 · Predict</h3><p>It tells us the next pass &amp; counts down.</p></div>
+      <div class="card"><h3>2 · Track</h3><p>Live map, Doppler swinging <span class="grn">+ → 0 → −</span>, signal meter.</p></div>
+      <div class="card"><h3>3 · Listen</h3><p>FM audio straight to the speakers.</p></div>
+    </div>
+    <p class="mut" style="margin-top:1.2em">🔊 Watch the <b class="yel">CARRIER ●</b>
+      spike on the spectrum — that's real energy from space hitting the antenna.</p>
+  </section>
+
+  <!-- 6 — ARCHITECTURE -->
+  <section class="slide">
+    <div class="kick">Under the hood</div>
+    <h2>How it works</h2>
+    <svg viewBox="0 0 960 300" font-family="ui-monospace,monospace">
+      <defs><marker id="ah" markerWidth="10" markerHeight="10" refX="7" refY="3"
+        orient="auto"><path d="M0,0 L7,3 L0,6" fill="#8b97a7"/></marker></defs>
+      <g font-size="15" fill="#e6edf3">
+        <rect x="10" y="120" width="140" height="60" rx="10" fill="#0d1424" stroke="#35c2f5"/>
+        <text x="80" y="146" text-anchor="middle" fill="#35c2f5">RTL-SDR v4</text>
+        <text x="80" y="166" text-anchor="middle" fill="#8b97a7" font-size="12">antenna → USB</text>
+
+        <rect x="200" y="120" width="150" height="60" rx="10" fill="#0d1424" stroke="#49d675"/>
+        <text x="275" y="146" text-anchor="middle" fill="#49d675">rtl_tcp</text>
+        <text x="275" y="166" text-anchor="middle" fill="#8b97a7" font-size="12">raw IQ @ 240 kS/s</text>
+
+        <rect x="400" y="95" width="200" height="110" rx="10" fill="#0d1424" stroke="#f5d035"/>
+        <text x="500" y="120" text-anchor="middle" fill="#f5d035">numpy DSP</text>
+        <text x="500" y="145" text-anchor="middle" fill="#cdd7e3" font-size="12">software Doppler (NCO)</text>
+        <text x="500" y="165" text-anchor="middle" fill="#cdd7e3" font-size="12">LPF + decimate ÷16</text>
+        <text x="500" y="185" text-anchor="middle" fill="#cdd7e3" font-size="12">FM discriminator</text>
+
+        <rect x="660" y="30" width="150" height="54" rx="10" fill="#0d1424" stroke="#35c2f5"/>
+        <text x="735" y="62" text-anchor="middle">🔊 speakers</text>
+        <rect x="660" y="120" width="150" height="60" rx="10" fill="#0d1424" stroke="#35c2f5"/>
+        <text x="735" y="146" text-anchor="middle">🗺️ live map</text>
+        <text x="735" y="166" text-anchor="middle" fill="#8b97a7" font-size="12">FastAPI + Leaflet</text>
+        <rect x="660" y="215" width="150" height="56" rx="10" fill="#0d1424" stroke="#c678dd"/>
+        <text x="735" y="240" text-anchor="middle" fill="#c678dd">🔮 prediction</text>
+        <text x="735" y="259" text-anchor="middle" fill="#8b97a7" font-size="12">SGP4 / skyfield</text>
+
+        <line x1="150" y1="150" x2="196" y2="150" stroke="#8b97a7" marker-end="url(#ah)"/>
+        <line x1="350" y1="150" x2="396" y2="150" stroke="#8b97a7" marker-end="url(#ah)"/>
+        <line x1="600" y1="140" x2="656" y2="60" stroke="#8b97a7" marker-end="url(#ah)"/>
+        <line x1="600" y1="150" x2="656" y2="150" stroke="#8b97a7" marker-end="url(#ah)"/>
+        <line x1="620" y1="175" x2="656" y2="235" stroke="#8b97a7" marker-end="url(#ah)"/>
+      </g>
+    </svg>
+    <p class="mut" style="margin-top:.5em">One command ties it all together:
+      <code class="cyan">iss-listen</code>.</p>
+  </section>
+
+  <!-- 7 — THE FLEX -->
+  <section class="slide">
+    <div class="kick">The engineering flex</div>
+    <h2>Gapless Doppler — in software</h2>
+    <div class="grid cols2">
+      <div>
+        <p>The obvious fix: keep <b>re-tuning the radio</b> to chase the Doppler.</p>
+        <p style="margin-top:.5em">We <b>measured</b> it on the RTL-SDR v4:</p>
+        <p class="big red" style="margin:.3em 0">~950 ms</p>
+        <p>of dead air <b>per re-tune</b>. Unacceptable.</p>
+        <p style="margin-top:.7em" class="grn"><b>So we never re-tune the hardware.</b>
+          We park on one frequency and cancel the Doppler in software → <b>zero gaps.</b></p>
+      </div>
+      <div class="card" style="align-self:center">
+        <h3>The DSP chain</h3>
+        <p class="mono" style="font-size:clamp(12px,1.5vw,18px);line-height:2">
+          <span class="grn">IQ</span> <span class="arrow">──▶</span>
+          <span class="cyan">NCO shift (−Δf)</span><br>
+          <span class="arrow">──▶</span> low-pass + ÷16<br>
+          <span class="arrow">──▶</span> <span class="yel">FM discriminator</span><br>
+          <span class="arrow">──▶</span> 🔊 15 kHz audio
+        </p>
+        <p class="mut" style="margin-top:.6em;font-size:.85em">A numerically-controlled
+          oscillator spins the moving carrier back to 0 Hz, 4× per second, from the
+          live SGP4 range-rate.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 — PREDICTION / OSINT -->
+  <section class="slide">
+    <div class="kick">Knowing where to look</div>
+    <h2>Orbital prediction = open OSINT</h2>
+    <div class="grid cols2">
+      <div>
+        <ul>
+          <li>Every tracked object's orbit is <b>public data</b> (TLEs from Celestrak).</li>
+          <li><b>SGP4 + skyfield</b> turn two lines of text into exact rise / peak /
+            set times for <b>your</b> location.</li>
+          <li>Cached locally, refreshed every 3 days — works offline after that.</li>
+          <li><span class="mut">Recon before reception — the same first step in any
+            signals-intelligence workflow.</span></li>
+        </ul>
+      </div>
+      <div class="term">
+<span class="g">► Next chance to listen: Wed 14:57 (in 6h)</span>
+  peak <span class="y">23°</span>, SSW→ENE, ~10 min overhead
+<span class="c">
+  #  rise    peak    set     max-el  travel</span>
+  1★ 14:57   15:02   15:07   <span class="y">22.8°</span>  SSW→ENE
+  2★ 16:34   16:39   16:44   <span class="y">24.2°</span>  WSW→NE
+  3  18:13   18:17   18:20    4.0°   NW→NNE
+<span class="c">★ = good pass (peak &gt; 20°)</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 — SECURITY TAKEAWAYS -->
+  <section class="slide">
+    <div class="kick">Why this matters to OWASP</div>
+    <h2>The RF attack surface</h2>
+    <div class="grid cols3">
+      <div class="card"><h3 class="grn" style="color:var(--grn)">Receive</h3>
+        <p>ADS-B aircraft, AIS ships, APRS, pagers, 433 MHz sensors, old GSM —
+          <b>plaintext, spoofable, unauthenticated.</b></p></div>
+      <div class="card"><h3 class="yel" style="color:var(--yel)">Transmit (⚠️ illegal)</h3>
+        <p>GPS/GNSS spoofing, ADS-B injection, satellite hijacking (Viasat 2022,
+          DEF CON sat talks).</p></div>
+      <div class="card"><h3 class="red" style="color:var(--red)">The lesson</h3>
+        <p>If it's wireless and old, assume <b>no confidentiality, no
+          authenticity.</b> Design accordingly.</p></div>
+    </div>
+    <p class="lead" style="margin-top:1.1em">🧭 <b>Ethics:</b> our tool only
+      <b class="grn">listens</b>. Receiving is legal and passive. The moment you
+      <b class="red">transmit</b> without a licence, you're breaking the law — and
+      that line matters.</p>
+  </section>
+
+  <!-- 10 — TRY IT -->
+  <section class="slide">
+    <div class="kick">Your turn</div>
+    <h2>Run it tonight 👇</h2>
+    <div class="grid cols2" style="align-items:center">
+      <div>
+        <div class="term">
+<span class="c"># clone & run — that's it</span>
+git clone https://github.com/<span class="b">Iceo96</span>/iss-listen
+cd iss-listen
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+<span class="g">./iss-listen</span>
+        </div>
+        <p style="margin-top:.9em" class="lead">🏆 <b>Challenge:</b> first person to
+          DM me an ISS <b class="yel">voice or SSTV</b> capture wins.</p>
+      </div>
+      <div style="text-align:center">
+        <div class="qr"><img src="data:image/png;base64,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" alt="QR to github.com/Iceo96/iss-listen"></div>
+        <p class="mono cyan" style="margin-top:.6em">github.com/Iceo96/iss-listen</p>
+        <p class="mut" style="font-size:.8em">★ star it · scan to open</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 — THANKS -->
+  <section class="slide" style="align-items:center;text-align:center">
+    <h1>Look up.<br>It's right there. 🛰️</h1>
+    <p class="lead mut" style="margin-top:.5em">The invisible world is wide open —
+      go listen to it responsibly.</p>
+    <p class="big grn" style="margin-top:1em">Thank you · 73!</p>
+    <p class="mut mono" style="margin-top:1.4em">iceo96 ·
+      <span class="yel">[ teammates ]</span> · OWASP Amman ·
+      github.com/Iceo96/iss-listen</p>
+  </section>
+
+</div>
+
+<div class="foot">
+  <span>iss-listen · OWASP Amman</span>
+  <span id="pg"></span>
+</div>
+<div class="hint">← → or Space to navigate · F for fullscreen</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('on',k===i));
+    document.getElementById('bar').style.width=((i)/(slides.length-1)*100)+'%';
+    document.getElementById('pg').textContent=(i+1)+' / '+slides.length;
+  }
+  function next(){show(i+1)} function prev(){show(i-1)}
+  addEventListener('keydown',e=>{
+    if(['ArrowRight',' ','PageDown','l','j'].includes(e.key)){e.preventDefault();next()}
+    else if(['ArrowLeft','PageUp','h','k'].includes(e.key)){e.preventDefault();prev()}
+    else if(e.key==='Home')show(0); else if(e.key==='End')show(slides.length-1);
+    else if(e.key==='f'||e.key==='F'){
+      if(!document.fullscreenElement)document.documentElement.requestFullscreen();
+      else document.exitFullscreen();}
+  });
+  addEventListener('click',e=>{ if(e.clientX < innerWidth*0.28) prev(); else next(); });
+  show(0);
+</script>
+</body>
+</html>
